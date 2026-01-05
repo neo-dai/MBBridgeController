@@ -184,7 +184,7 @@ class PageTurnerService : Service() {
         }
 
         if (!hasScanPermission()) {
-            AppLog.w(TAG, "Missing scan permission")
+            AppLog.w(TAG, "Missing permissions for scan (BLUETOOTH_SCAN and/or ACCESS_FINE_LOCATION)")
             return
         }
 
@@ -242,7 +242,8 @@ class PageTurnerService : Service() {
     private fun hasScanPermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= 31) {
             // 用字符串写权限名：避免低 compileSdk 下引用不到常量
-            checkSelfPermission("android.permission.BLUETOOTH_SCAN") == PackageManager.PERMISSION_GRANTED
+            checkSelfPermission("android.permission.BLUETOOTH_SCAN") == PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         } else {
             if (Build.VERSION.SDK_INT >= 23) {
                 checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED

@@ -117,6 +117,8 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 31) {
             perms += "android.permission.BLUETOOTH_SCAN"
             perms += "android.permission.BLUETOOTH_CONNECT"
+            // 本项目 targetSdk=30：在 Android 12+ 上扫描回调可能仍被定位权限/定位开关影响
+            perms += "android.permission.ACCESS_FINE_LOCATION"
         } else {
             // Android 6-11：BLE 扫描通常需要定位权限
             perms += "android.permission.ACCESS_FINE_LOCATION"
