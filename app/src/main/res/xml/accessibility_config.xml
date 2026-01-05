@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:notificationTimeout="0"
+    android:canRetrieveWindowContent="false"
+    android:canPerformGestures="true"
+    android:description="BLE 小说翻页器：接收手环广播并在屏幕左右边缘模拟点击翻页"
+    android:settingsActivity="com.example.blepageturner.MainActivity" />
