@@ -6,6 +6,7 @@ import java.util.ArrayDeque
 object ProtocolLogStore {
     private const val PREFS_NAME = "ble_page_turner"
     const val PREF_LOG_ENABLED = "log_enabled"
+    private const val PREF_SCAN_ALL = "scan_all"
 
     const val ACTION_PROTOCOL_LOG = "com.example.blepageturner.ACTION_PROTOCOL_LOG"
     const val EXTRA_LINE = "line"
@@ -14,6 +15,10 @@ object ProtocolLogStore {
 
     @Volatile
     var enabled: Boolean = false
+        private set
+
+    @Volatile
+    var scanAll: Boolean = false
         private set
 
     private val lock = Any()
@@ -31,6 +36,21 @@ object ProtocolLogStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(PREF_LOG_ENABLED, enabled)
+            .apply()
+    }
+
+    fun isScanAll(context: Context): Boolean {
+        val v = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(PREF_SCAN_ALL, false)
+        scanAll = v
+        return v
+    }
+
+    fun setScanAll(context: Context, enabled: Boolean) {
+        scanAll = enabled
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREF_SCAN_ALL, enabled)
             .apply()
     }
 

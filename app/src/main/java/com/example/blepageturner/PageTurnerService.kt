@@ -35,6 +35,7 @@ class PageTurnerService : Service() {
         val SERVICE_UUID: UUID = UUID.fromString("c76393eb-1994-4b4d-b1e2-1d7bde0571fa")
 
         const val ACTION_PAGE_COMMAND = "com.example.blepageturner.ACTION_PAGE_COMMAND"
+        const val ACTION_RESTART_SCAN = "com.example.blepageturner.ACTION_RESTART_SCAN"
         const val EXTRA_CMD = "cmd"
 
         const val CMD_PREV = 1
@@ -61,8 +62,21 @@ class PageTurnerService : Service() {
         }
     }
 
+    private val restartReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action != ACTION_RESTART_SCAN) return
+            stopScanIfNeeded()
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            if (pm.isInteractive) startScanIfNeeded()
+        }
+    }
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
+            if (ProtocolLogStore.scanAll) {
+                logAnyAdvertisement(result)
+            }
+
             val parsed = parsePayload(result) ?: return
 
             val now = SystemClock.elapsedRealtime()
@@ -99,11 +113,14 @@ class PageTurnerService : Service() {
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
         )
+
+        registerReceiver(restartReceiver, IntentFilter(ACTION_RESTART_SCAN))
     }
 
     override fun onDestroy() {
         stopScanIfNeeded()
         unregisterReceiver(screenReceiver)
+        unregisterReceiver(restartReceiver)
         super.onDestroy()
     }
 
@@ -178,12 +195,17 @@ class PageTurnerService : Service() {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        // 过滤条件：只扫描包含指定 Service UUID 的广播包，减少误触和耗电
-        val filters = listOf(
-            ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid(SERVICE_UUID))
-                .build()
-        )
+        val filters = if (ProtocolLogStore.scanAll) {
+            // 调试：不过滤，记录所有 BLE 广播
+            null
+        } else {
+            // 正常：只扫描包含指定 Service UUID 的广播包，减少误触和耗电
+            listOf(
+                ScanFilter.Builder()
+                    .setServiceUuid(ParcelUuid(SERVICE_UUID))
+                    .build()
+            )
+        }
 
         try {
             s.startScan(filters, settings, scanCallback)
@@ -193,6 +215,15 @@ class PageTurnerService : Service() {
             scanning = false
             AppLog.w(TAG, "startScan failed", t)
         }
+    }
+
+    private fun logAnyAdvertisement(result: ScanResult) {
+        val addr = result.device?.address ?: "-"
+        val rssi = result.rssi
+        val raw = result.scanRecord?.bytes
+
+        val rawHex = if (raw == null) "-" else toHex(raw)
+        AppLog.i(TAG, "adv addr=$addr rssi=$rssi raw=$rawHex")
     }
 
     private fun stopScanIfNeeded() {

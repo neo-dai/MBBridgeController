@@ -13,6 +13,7 @@ object AppLog {
         appContext = context.applicationContext
         // 同步一次开关状态（保证 Service 先启动时也能读到 prefs）
         ProtocolLogStore.isEnabled(appContext!!)
+        ProtocolLogStore.isScanAll(appContext!!)
     }
 
     fun i(tag: String, msg: String) {

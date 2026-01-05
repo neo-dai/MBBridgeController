@@ -41,6 +41,15 @@ class MainActivity : Activity() {
             }
         }
 
+        val swScanAll = Switch(this).apply {
+            text = "调试：记录所有 BLE 广播(很刷屏)"
+            isChecked = ProtocolLogStore.isScanAll(this@MainActivity)
+            setOnCheckedChangeListener { _, checked ->
+                ProtocolLogStore.setScanAll(this@MainActivity, checked)
+                sendBroadcast(Intent(PageTurnerService.ACTION_RESTART_SCAN).setPackage(packageName))
+            }
+        }
+
         val btnLogs = Button(this).apply {
             text = "查看协议日志"
             setOnClickListener {
@@ -78,6 +87,7 @@ class MainActivity : Activity() {
             addView(status)
             addView(btnPerm)
             addView(swLog)
+            addView(swScanAll)
             addView(btnLogs)
             addView(btnA11y)
             addView(btnStart)
