@@ -9,7 +9,6 @@ import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.BroadcastReceiver
@@ -198,20 +197,10 @@ class PageTurnerService : Service() {
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        val filters = if (ProtocolLogStore.scanAll) {
-            // 调试：不过滤，记录所有 BLE 广播
-            null
-        } else {
-            // 正常：只扫描包含指定 Service UUID 的广播包，减少误触和耗电
-            listOf(
-                ScanFilter.Builder()
-                    .setServiceUuid(ParcelUuid(SERVICE_UUID))
-                    .build()
-            )
-        }
-
         try {
-            s.startScan(filters, settings, scanCallback)
+            // 不使用 ScanFilter.setServiceUuid：部分设备/系统对 128-bit UUID 的硬件过滤不稳定。
+            // 改为“全部扫描 + 回调里用 SERVICE_UUID 做软件过滤”，保证协议包不会被系统过滤掉。
+            s.startScan(null, settings, scanCallback)
             scanning = true
             AppLog.i(TAG, "scan started")
         } catch (t: Throwable) {
