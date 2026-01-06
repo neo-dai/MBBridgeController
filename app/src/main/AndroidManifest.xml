@@ -63,6 +63,7 @@
         <!-- 无障碍服务：用于模拟点击 -->
         <service
             android:name=".MBBridgeAccessibilityService"
+            android:label="@string/accessibility_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="false">
             <intent-filter>
