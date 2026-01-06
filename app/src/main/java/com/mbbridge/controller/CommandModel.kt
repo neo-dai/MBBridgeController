@@ -89,7 +89,11 @@ enum class LogLevel {
 
 object TapAction {
     const val ACTION_TAP = "com.mbbridge.controller.ACTION_TAP"
+    const val ACTION_TAP_RESULT = "com.mbbridge.controller.ACTION_TAP_RESULT"
     const val EXTRA_SIDE = "side"
+    const val EXTRA_RESULT = "result"
+    const val EXTRA_X = "x"
+    const val EXTRA_Y = "y"
     const val SIDE_LEFT = "left"
     const val SIDE_RIGHT = "right"
 }

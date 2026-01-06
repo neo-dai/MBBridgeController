@@ -57,6 +57,19 @@ class MBBridgeService : Service() {
     private var commandListener: MBBridgeHttpServer.CommandListener? = null
     private var logListener: MBBridgeHttpServer.LogListener? = null
     private val portStore by lazy { PortStore(this) }
+    private val tapResultReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != TapAction.ACTION_TAP_RESULT) {
+                return
+            }
+            val side = intent.getStringExtra(TapAction.EXTRA_SIDE) ?: "unknown"
+            val success = intent.getBooleanExtra(TapAction.EXTRA_RESULT, false)
+            val x = intent.getIntExtra(TapAction.EXTRA_X, -1)
+            val y = intent.getIntExtra(TapAction.EXTRA_Y, -1)
+            val status = if (success) "ok" else "failed"
+            emitLog(LogLevel.INFO, "Tap result: $side $status at x=$x y=$y")
+        }
+    }
 
     inner class LocalBinder : Binder() {
         fun getService(): MBBridgeService = this@MBBridgeService
@@ -106,6 +119,12 @@ class MBBridgeService : Service() {
         createNotificationChannel()
         serverPort = portStore.getPort()
         httpServer = MBBridgeHttpServer(this, serverPort)
+        val filter = IntentFilter(TapAction.ACTION_TAP_RESULT)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(tapResultReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(tapResultReceiver, filter)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -142,6 +161,11 @@ class MBBridgeService : Service() {
         super.onDestroy()
         emitLog(LogLevel.WARN, "Service destroyed")
         stopHttpServer()
+        try {
+            unregisterReceiver(tapResultReceiver)
+        } catch (e: Exception) {
+            Log.w(TAG, "Unregister tap receiver failed", e)
+        }
     }
 
     /**

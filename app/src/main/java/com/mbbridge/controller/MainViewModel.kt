@@ -193,10 +193,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             is CommandType.NEXT -> TapAction.SIDE_RIGHT
             is CommandType.UNKNOWN -> null
         } ?: return
+        addUiLog("Tap request: $side")
         val intent = Intent(TapAction.ACTION_TAP).apply {
             setPackage(context.packageName)
             putExtra(TapAction.EXTRA_SIDE, side)
         }
         context.sendBroadcast(intent)
+    }
+
+    private fun addUiLog(message: String) {
+        val current = _uiState.value
+        if (!current.logsEnabled) {
+            return
+        }
+        val timestamp = android.text.format.DateFormat.format("HH:mm:ss", System.currentTimeMillis())
+        val entry = "[$timestamp] [INFO] $message"
+        _uiState.value = current.copy(logs = (listOf(entry) + current.logs).take(MAX_LOGS))
     }
 }

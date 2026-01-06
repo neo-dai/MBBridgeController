@@ -87,6 +87,18 @@ class MBBridgeAccessibilityService : AccessibilityService() {
         val label = if (isLeft) "left" else "right"
         val dispatched = dispatchGesture(gesture, null, null)
         Log.i(TAG, "Dispatch tap $label at x=$x y=$y result=$dispatched")
+        sendTapResult(label, dispatched, x, y)
+    }
+
+    private fun sendTapResult(side: String, success: Boolean, x: Int, y: Int) {
+        val intent = Intent(TapAction.ACTION_TAP_RESULT).apply {
+            setPackage(packageName)
+            putExtra(TapAction.EXTRA_SIDE, side)
+            putExtra(TapAction.EXTRA_RESULT, success)
+            putExtra(TapAction.EXTRA_X, x)
+            putExtra(TapAction.EXTRA_Y, y)
+        }
+        sendBroadcast(intent)
     }
 
     private fun getScreenBounds(): Rect {
