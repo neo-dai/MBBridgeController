@@ -33,6 +33,9 @@ class PageTurnerService : Service() {
         // 手环端（Zepp OS）广播里必须使用同一个 UUID 才能被过滤命中，降低被其他设备干扰（但不是加密）。
         val SERVICE_UUID: UUID = UUID.fromString("c76393eb-1994-4b4d-b1e2-1d7bde0571fa")
 
+        private val SERVICE_UUID_BYTES_BE: ByteArray = uuidToBytesBE(SERVICE_UUID)
+        private val SERVICE_UUID_BYTES_LE: ByteArray = SERVICE_UUID_BYTES_BE.reversedArray()
+
         const val ACTION_PAGE_COMMAND = "com.example.blepageturner.ACTION_PAGE_COMMAND"
         const val ACTION_RESTART_SCAN = "com.example.blepageturner.ACTION_RESTART_SCAN"
         const val EXTRA_CMD = "cmd"
@@ -45,6 +48,19 @@ class PageTurnerService : Service() {
 
         private const val NOTIF_CHANNEL_ID = "page_turner"
         private const val NOTIF_ID = 1001
+
+        private fun uuidToBytesBE(uuid: UUID): ByteArray {
+            val out = ByteArray(16)
+            val msb = uuid.mostSignificantBits
+            val lsb = uuid.leastSignificantBits
+            for (i in 0..7) {
+                out[i] = ((msb shr (56 - i * 8)) and 0xFF).toByte()
+            }
+            for (i in 0..7) {
+                out[8 + i] = ((lsb shr (56 - i * 8)) and 0xFF).toByte()
+            }
+            return out
+        }
     }
 
     private val lastTriggerAt = AtomicLong(0L)
@@ -263,7 +279,7 @@ class PageTurnerService : Service() {
 
         // 优先解析 Service Data：key 为 SERVICE_UUID
         val serviceData = record.getServiceData(ParcelUuid(SERVICE_UUID))
-        val hasOurService = record.serviceUuids?.any { it.uuid == SERVICE_UUID } == true
+        val hasOurService = hasOurServiceUuid(record)
         val payload: ByteArray? = when {
             serviceData != null && serviceData.isNotEmpty() -> serviceData
             hasOurService -> {
@@ -293,6 +309,30 @@ class PageTurnerService : Service() {
         }
 
         return ParsedPayload(source, p, cmd)
+    }
+
+    private fun hasOurServiceUuid(record: android.bluetooth.le.ScanRecord): Boolean {
+        if (record.serviceUuids?.any { it.uuid == SERVICE_UUID } == true) return true
+
+        // 某些设备上 serviceUuids 可能为空，但 raw bytes 里仍包含 UUID；这里做一次简单字节序列匹配。
+        val raw = record.bytes ?: return false
+        return containsBytes(raw, SERVICE_UUID_BYTES_LE) || containsBytes(raw, SERVICE_UUID_BYTES_BE)
+    }
+
+    private fun containsBytes(haystack: ByteArray, needle: ByteArray): Boolean {
+        if (needle.isEmpty() || haystack.size < needle.size) return false
+        val last = haystack.size - needle.size
+        for (i in 0..last) {
+            var ok = true
+            for (j in needle.indices) {
+                if (haystack[i + j] != needle[j]) {
+                    ok = false
+                    break
+                }
+            }
+            if (ok) return true
+        }
+        return false
     }
 
     private fun maybeLog(rssi: Int, source: String, payload: ByteArray, cmd: Int?, debounced: Boolean) {
