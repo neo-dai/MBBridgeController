@@ -25,6 +25,7 @@ class MBBridgeService : Service() {
 
         const val ACTION_START = "com.mbbridge.controller.START"
         const val ACTION_STOP = "com.mbbridge.controller.STOP"
+        const val EXTRA_STOP_REASON = "stop_reason"
 
         fun startService(context: Context) {
             val intent = Intent(context, MBBridgeService::class.java).apply {
@@ -38,8 +39,13 @@ class MBBridgeService : Service() {
         }
 
         fun stopService(context: Context) {
+            stopService(context, "unknown")
+        }
+
+        fun stopService(context: Context, reason: String) {
             val intent = Intent(context, MBBridgeService::class.java).apply {
                 action = ACTION_STOP
+                putExtra(EXTRA_STOP_REASON, reason)
             }
             context.startService(intent)
         }
@@ -115,7 +121,8 @@ class MBBridgeService : Service() {
                 startHttpServer()
             }
             ACTION_STOP -> {
-                emitLog(LogLevel.WARN, "Stop command received")
+                val reason = intent.getStringExtra(EXTRA_STOP_REASON) ?: "unknown"
+                emitLog(LogLevel.WARN, "Stop command received (reason=$reason)")
                 stopHttpServer()
                 stopSelf()
             }

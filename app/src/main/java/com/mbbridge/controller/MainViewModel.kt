@@ -79,7 +79,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
     }
 
     fun stopServer() {
-        MBBridgeService.stopService(context)
+        MBBridgeService.stopService(context, "ui")
         updateServerStatus()
     }
 
