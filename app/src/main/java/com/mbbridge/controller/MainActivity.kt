@@ -1,6 +1,10 @@
 package com.mbbridge.controller
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -396,8 +400,24 @@ private fun LogCard(logs: List<String>, onClear: () -> Unit) {
                     fontWeight = FontWeight.Bold
                 )
                 if (logs.isNotEmpty()) {
-                    OutlinedButton(onClick = onClear) {
-                        Text(context.getString(R.string.clear_logs))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onClear) {
+                            Text(context.getString(R.string.clear_logs))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val content = logs.joinToString("\n")
+                                clipboard.setPrimaryClip(ClipData.newPlainText("MBBridgeLogs", content))
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.logs_copied),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        ) {
+                            Text(context.getString(R.string.copy_logs))
+                        }
                     }
                 }
             }
