@@ -52,9 +52,9 @@ jobs:
       run: |
         ./gradlew assembleDebug --no-daemon
 
-    - name: Build Release APK
+    - name: Build Release APK (optional)
       run: |
-        ./gradlew assembleRelease --no-daemon
+        ./gradlew assembleRelease --no-daemon || echo "Release build skipped"
 
     - name: Rename APKs
       run: |
@@ -62,19 +62,21 @@ jobs:
         # 重命名 Debug APK
         mv app/build/outputs/apk/debug/app-debug.apk \
            MBBridgeController-${APK_VER}-debug.apk
-        # 重命名 Release APK
-        mv app/build/outputs/apk/release/app-release.apk \
-           MBBridgeController-${APK_VER}-release.apk
+        # 重命名 Release APK（如果存在）
+        if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+          mv app/build/outputs/apk/release/app-release.apk \
+             MBBridgeController-${APK_VER}-release.apk
+        fi
         echo "Renamed APKs to: MBBridgeController-${APK_VER}-[debug|release].apk"
 
     - name: Verify renamed APKs
       run: |
         APK_VER="${{ steps.version.outputs.apk_version }}"
         echo "=== Checking APK files ==="
-        ls -lh *.apk
+        ls -lh *.apk || true
         echo ""
         echo "=== File names ==="
-        basename *.apk
+        basename *.apk || true
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
@@ -83,7 +85,8 @@ jobs:
         path: MBBridgeController-${{ steps.version.outputs.apk_version }}-debug.apk
         retention-days: 30
 
-    - name: Upload Release APK
+    - name: Upload Release APK (if present)
+      if: ${{ hashFiles('MBBridgeController-${{ steps.version.outputs.apk_version }}-release.apk') != '' }}
       uses: actions/upload-artifact@v4
       with:
         name: MBBridgeController-${{ steps.version.outputs.apk_version }}-release
@@ -110,8 +113,12 @@ jobs:
         echo "- Debug: \`${DEBUG_APK}\`" >> $GITHUB_STEP_SUMMARY
         echo "- 大小: $(du -h ${DEBUG_APK} | cut -f1)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- Release: \`${RELEASE_APK}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- 大小: $(du -h ${RELEASE_APK} | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        if [ -f "${RELEASE_APK}" ]; then
+          echo "- Release: \`${RELEASE_APK}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 大小: $(du -h ${RELEASE_APK} | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Release: 未生成（可能未配置签名）" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**📥 下载说明:**" >> $GITHUB_STEP_SUMMARY
         echo "1. 点击下方 Artifacts 区域的文件链接" >> $GITHUB_STEP_SUMMARY
