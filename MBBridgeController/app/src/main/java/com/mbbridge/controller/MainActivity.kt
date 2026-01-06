@@ -41,7 +41,19 @@ fun MBBridgeApp(viewModel: MainViewModel = viewModel()) {
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                ),
+                actions = {
+                    // 日志窗口开关按钮
+                    IconButton(onClick = { viewModel.toggleLogWindow() }) {
+                        Icon(
+                            imageVector = if (uiState.showLogWindow)
+                                androidx.compose.material.icons.Icons.Filled.ExpandLess
+                            else
+                                androidx.compose.material.icons.Icons.Filled.ExpandMore,
+                            contentDescription = "Toggle Log Window"
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -83,6 +95,15 @@ fun MBBridgeApp(viewModel: MainViewModel = viewModel()) {
                 onSaveToken = { viewModel.saveToken(it) },
                 onOpenAccessibility = { viewModel.openAccessibilitySettings() }
             )
+
+            // 详细日志窗口（可展开/收起）
+            if (uiState.showLogWindow) {
+                DetailedLogCard(
+                    logs = uiState.detailedLogs,
+                    onClear = { viewModel.clearDetailedLogs() },
+                    onExport = { viewModel.exportLogs() }
+                )
+            }
         }
     }
 }
@@ -347,4 +368,100 @@ fun SettingsCard(
             }
         }
     }
+}
+
+/**
+ * 详细日志卡片（显示协议交互和所有关键步骤）
+ */
+@Composable
+fun DetailedLogCard(
+    logs: List<String>,
+    onClear: () -> Unit,
+    onExport: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f),  // 占据剩余空间
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // 标题栏
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📋 实时日志（协议交互）",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (logs.isNotEmpty()) {
+                        TextButton(onClick = onClear) {
+                            Text("清空")
+                        }
+                    }
+                    TextButton(onClick = { /* TODO: 实现导出功能 */ }) {
+                        Text("导出")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 日志内容
+            if (logs.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "暂无日志",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(logs) { log ->
+                        LogEntryItem(log = log)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 单条日志条目（根据日志级别显示不同颜色）
+ */
+@Composable
+fun LogEntryItem(log: String) {
+    val color = when {
+        log.contains("[ERROR]") || log.contains("✗") -> MaterialTheme.colorScheme.error
+        log.contains("[WARN]") -> MaterialTheme.colorScheme.tertiary
+        log.contains("[INFO]") || log.contains("✓") -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Text(
+        text = log,
+        style = MaterialTheme.typography.bodySmall,
+        color = color,
+        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+    )
 }

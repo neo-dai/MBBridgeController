@@ -22,18 +22,21 @@ data class UiState(
     val lastCommand: Command? = null,
     val stats: CommandStats = CommandStats(),
     val logs: List<String> = emptyList(),
-    val token: String = ""
+    val detailedLogs: List<String> = emptyList(),  // 详细日志（包含协议交互）
+    val token: String = "",
+    val showLogWindow: Boolean = false  // 是否显示日志窗口
 )
 
 /**
  * Main ViewModel
  */
 class MainViewModel(application: Application) : AndroidViewModel(application),
-    MBBridgeHttpServer.CommandListener {
+    MBBridgeHttpServer.CommandListener, MBBridgeHttpServer.LogListener {
 
     companion object {
         private const val TAG = "MBBridgeCtrl"
         private const val MAX_LOGS = 50
+        private const val MAX_DETAILED_LOGS = 200  // 详细日志保留更多
     }
 
     private val _uiState = MutableStateFlow(UiState())
@@ -48,13 +51,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
             val localBinder = binder as? MBBridgeService.LocalBinder
             service = localBinder?.getService()
             service?.setCommandListener(this@MainViewModel)
+            service?.setLogListener(this@MainViewModel)  // 设置日志监听器
             updateServerStatus()
+            addDetailedLog(LogLevel.INFO, "✓ Service connected")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d(TAG, "Service disconnected")
             service = null
             updateServerStatus()
+            addDetailedLog(LogLevel.WARN, "✗ Service disconnected")
         }
     }
 
@@ -95,6 +101,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
      */
     fun startServer() {
         Log.i(TAG, "Starting server...")
+        addDetailedLog(LogLevel.INFO, "▶ Starting server...")
         MBBridgeService.startService(context)
         // 延迟检查状态
         viewModelScope.launch {
@@ -108,8 +115,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
      */
     fun stopServer() {
         Log.i(TAG, "Stopping server...")
+        addDetailedLog(LogLevel.INFO, "■ Stopping server...")
         MBBridgeService.stopService(context)
         updateServerStatus()
+    }
+
+    /**
+     * 日志回调（来自 HTTP 服务器）
+     */
+    override fun onLog(level: LogLevel, message: String) {
+        addDetailedLog(level, message)
     }
 
     /**
@@ -198,9 +213,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application),
         context.startActivity(intent)
     }
 
+    /**
+     * 切换日志窗口显示
+     */
+    fun toggleLogWindow() {
+        _uiState.value = _uiState.value.copy(
+            showLogWindow = !_uiState.value.showLogWindow
+        )
+    }
+
+    /**
+     * 添加详细日志（协议交互、关键步骤）
+     */
+    fun addDetailedLog(level: LogLevel, message: String) {
+        viewModelScope.launch {
+            val timestamp = android.text.format.DateFormat.format(
+                "HH:mm:ss.SSS",
+                System.currentTimeMillis()
+            )
+            val logEntry = "[$timestamp] [${level.name}] $message"
+
+            val currentState = _uiState.value
+            val newLogs = (listOf(logEntry) + currentState.detailedLogs).take(MAX_DETAILED_LOGS)
+
+            _uiState.value = currentState.copy(detailedLogs = newLogs)
+
+            // 同时输出到 Logcat
+            when (level) {
+                LogLevel.VERBOSE -> Log.v(TAG, message)
+                LogLevel.DEBUG -> Log.d(TAG, message)
+                LogLevel.INFO -> Log.i(TAG, message)
+                LogLevel.WARN -> Log.w(TAG, message)
+                LogLevel.ERROR -> Log.e(TAG, message)
+            }
+        }
+    }
+
+    /**
+     * 清空详细日志
+     */
+    fun clearDetailedLogs() {
+        _uiState.value = _uiState.value.copy(detailedLogs = emptyList())
+    }
+
+    /**
+     * 导出日志为文本
+     */
+    fun exportLogs(): String {
+        return _uiState.value.detailedLogs.joinToString("\n")
+    }
+
     override fun onCleared() {
         super.onCleared()
         unbindFromService()
         service?.setCommandListener(null)
+        service?.setLogListener(null)  // 清除日志监听器
     }
 }

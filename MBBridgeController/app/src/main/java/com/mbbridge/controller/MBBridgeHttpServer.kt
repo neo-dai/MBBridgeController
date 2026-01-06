@@ -30,13 +30,35 @@ class MBBridgeHttpServer(
     }
 
     private var commandListener: CommandListener? = null
+    private var logListener: LogListener? = null
 
     interface CommandListener {
         fun onCommandReceived(command: Command)
     }
 
+    interface LogListener {
+        fun onLog(level: LogLevel, message: String)
+    }
+
     fun setCommandListener(listener: CommandListener?) {
         this.commandListener = listener
+    }
+
+    fun setLogListener(listener: LogListener?) {
+        this.logListener = listener
+    }
+
+    private fun log(level: LogLevel, message: String) {
+        // 输出到 Logcat
+        when (level) {
+            LogLevel.VERBOSE -> Log.v(TAG, message)
+            LogLevel.DEBUG -> Log.d(TAG, message)
+            LogLevel.INFO -> Log.i(TAG, message)
+            LogLevel.WARN -> Log.w(TAG, message)
+            LogLevel.ERROR -> Log.e(TAG, message)
+        }
+        // 通知监听器
+        logListener?.onLog(level, message)
     }
 
     /**
@@ -70,7 +92,8 @@ class MBBridgeHttpServer(
             val uri = session.uri
             val method = session.method
 
-            Log.d(TAG, "Request: $method $uri from ${session.remoteIpAddress}")
+            log(LogLevel.DEBUG, "➤ Request: $method $uri from ${session.remoteIpAddress}")
+            log(LogLevel.DEBUG, "  Headers: ${session.headers}")
 
             when {
                 // POST /cmd - 接收命令
@@ -83,7 +106,8 @@ class MBBridgeHttpServer(
                 else -> handleNotFound()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling request", e)
+            log(LogLevel.ERROR, "✗ Error handling request: ${e.message}")
+            e.printStackTrace()
             newFixedLengthResponse(
                 Response.Status.INTERNAL_ERROR,
                 "application/json",
@@ -98,9 +122,12 @@ class MBBridgeHttpServer(
      * Body: { "v": 1, "ts": 1730000000000, "source": "mbbridge" }
      */
     private fun handleCommand(session: IHTTPSession): Response {
+        log(LogLevel.INFO, "↕ POST /cmd - Command request received")
+
         // 验证 Token
+        val tokenProvided = session.headers["x-mbbridge-token"] ?: session.headers["X-MBBridge-Token"]
         if (!verifyToken(session)) {
-            Log.w(TAG, "Invalid token from ${session.remoteIpAddress}")
+            log(LogLevel.WARN, "✗ Token validation failed (provided: ${if (tokenProvided.isNullOrEmpty()) "none" else "***"})")
             return newFixedLengthResponse(
                 Response.Status.UNAUTHORIZED,
                 "application/json",
@@ -108,10 +135,12 @@ class MBBridgeHttpServer(
             )
         }
 
+        log(LogLevel.DEBUG, "✓ Token validated ${if (tokenProvided.isNullOrEmpty()) "(skipped - no token configured)" else "successfully"}")
+
         // 读取请求体
         val body = parseRequestBody(session)
         if (body.isNullOrBlank()) {
-            Log.w(TAG, "Empty request body")
+            log(LogLevel.WARN, "✗ Empty request body")
             return newFixedLengthResponse(
                 Response.Status.BAD_REQUEST,
                 "application/json",
@@ -119,12 +148,12 @@ class MBBridgeHttpServer(
             )
         }
 
-        Log.d(TAG, "Received command: $body")
+        log(LogLevel.DEBUG, "  Request body: $body")
 
         // 解析 JSON
         val command = Command.fromJson(body)
         if (command == null) {
-            Log.w(TAG, "Invalid command JSON: $body")
+            log(LogLevel.ERROR, "✗ Invalid JSON format: $body")
             return newFixedLengthResponse(
                 Response.Status.BAD_REQUEST,
                 "application/json",
@@ -132,14 +161,18 @@ class MBBridgeHttpServer(
             )
         }
 
+        log(LogLevel.INFO, "✓ Command parsed: type=${command.getCommandType()}, v=${command.v}, ts=${command.ts}, source=${command.source}")
+
         // 通知监听器
         commandListener?.onCommandReceived(command)
 
         // 返回成功响应
+        val responseJson = HttpResponse.success().toJson()
+        log(LogLevel.DEBUG, "← Response: $responseJson")
         return newFixedLengthResponse(
             Response.Status.OK,
             "application/json",
-            HttpResponse.success().toJson()
+            responseJson
         )
     }
 
@@ -167,10 +200,13 @@ class MBBridgeHttpServer(
      * GET /health
      */
     private fun handleHealth(): Response {
+        log(LogLevel.INFO, "↕ GET /health - Health check")
+        val responseJson = HttpResponse.success(app = "MBBridgeCtrl").toJson()
+        log(LogLevel.DEBUG, "← Response: $responseJson")
         return newFixedLengthResponse(
             Response.Status.OK,
             "application/json",
-            HttpResponse.success(app = "MBBridgeCtrl").toJson()
+            responseJson
         )
     }
 
@@ -178,6 +214,7 @@ class MBBridgeHttpServer(
      * 处理 404
      */
     private fun handleNotFound(): Response {
+        log(LogLevel.WARN, "✗ 404 Not Found")
         return newFixedLengthResponse(
             Response.Status.NOT_FOUND,
             "application/json",
@@ -190,11 +227,12 @@ class MBBridgeHttpServer(
      */
     fun startServer(): Boolean {
         return try {
+            log(LogLevel.INFO, "▶ Starting HTTP server on $HOST:$PORT...")
             start()
-            Log.i(TAG, "HTTP Server started on $HOST:$PORT")
+            log(LogLevel.INFO, "✓ HTTP server started successfully")
             true
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to start HTTP server", e)
+            log(LogLevel.ERROR, "✗ Failed to start HTTP server: ${e.message}")
             false
         }
     }
@@ -204,10 +242,11 @@ class MBBridgeHttpServer(
      */
     fun stopServer() {
         try {
+            log(LogLevel.INFO, "■ Stopping HTTP server...")
             stop()
-            Log.i(TAG, "HTTP Server stopped")
+            log(LogLevel.INFO, "✓ HTTP server stopped")
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping HTTP server", e)
+            log(LogLevel.ERROR, "✗ Error stopping HTTP server: ${e.message}")
         }
     }
 }

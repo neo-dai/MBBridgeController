@@ -115,3 +115,14 @@ data class CommandStats(
         totalCount = 0
     }
 }
+
+/**
+ * 日志级别
+ */
+enum class LogLevel {
+    VERBOSE,
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR
+}

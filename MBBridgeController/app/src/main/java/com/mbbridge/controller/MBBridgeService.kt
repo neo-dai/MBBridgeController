@@ -65,6 +65,13 @@ class MBBridgeService : Service() {
         httpServer?.setCommandListener(listener)
     }
 
+    /**
+     * 设置日志监听器
+     */
+    fun setLogListener(listener: MBBridgeHttpServer.LogListener?) {
+        httpServer?.setLogListener(listener)
+    }
+
     override fun onCreate() {
         super.onCreate()
         Log.i(TAG, "MBBridgeService created")
