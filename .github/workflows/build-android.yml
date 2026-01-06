@@ -70,6 +70,15 @@ jobs:
            MBBridgeController/MBBridgeController-${APK_VER}-release.apk
         echo "Renamed APKs to: MBBridgeController-${APK_VER}-[debug|release].apk"
 
+    - name: Verify renamed APKs
+      run: |
+        APK_VER="${{ steps.version.outputs.apk_version }}"
+        echo "=== Checking APK files ==="
+        ls -lh MBBridgeController/*.apk
+        echo ""
+        echo "=== File names ==="
+        basename MBBridgeController/*.apk
+
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
@@ -106,5 +115,11 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- Release: \`${RELEASE_APK}\`" >> $GITHUB_STEP_SUMMARY
         echo "- 大小: $(du -h MBBridgeController/${RELEASE_APK} | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**📥 下载说明:**" >> $GITHUB_STEP_SUMMARY
+        echo "1. 点击下方 Artifacts 区域的文件链接" >> $GITHUB_STEP_SUMMARY
+        echo "2. 下载的是 zip 压缩包" >> $GITHUB_STEP_SUMMARY
+        echo "3. **解压后**才能得到 APK 文件" >> $GITHUB_STEP_SUMMARY
+        echo "4. 解压后的文件名包含完整版本信息" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "📍 下载位置: Actions -> Artifacts" >> $GITHUB_STEP_SUMMARY
